@@ -1,30 +1,17 @@
 pipeline {
-  agent any
-  environment {
-    DOCKERHUB_USER = 'bovasgabriel'
-    DOCKERHUB_REPO = 'trend'
-    IMAGE          = "${DOCKERHUB_USER}/${DOCKERHUB_REPO}:${env.BUILD_NUMBER}"
+    agent any
 
-    AWS_REGION   = 'ap-south-1'
-    EKS_CLUSTER  = 'trend-cluster'
-    KUBE_NS      = 'default'
-    KUBECONFIG   = "${WORKSPACE}/kubeconfig"
-  }
-  stages {
-    stage('Checkout') {
-      steps { checkout scm }
+    environment {
+        DOCKERHUB_CREDENTIALS = credentials('dockerhub-creds')
     }
-    stage('Build Docker image') {
-      steps { sh 'docker build -t $IMAGE .' }
-    }
-    stage('Push to DockerHub') {
-      steps {
-        withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DH_USER', passwordVariable: 'DH_PASS')]) {
-          sh 'echo $DH_PASS | docker login -u $DH_USER --password-stdin'
-          sh 'docker push $IMAGE'
-          sh 'docker tag $IMAGE $DOCKERHUB_USER/$DOCKERHUB_REPO:latest'
-          sh 'docker push $DOCKERHUB_USER/$DOCKERHUB_REPO:latest'
+
+    stages {
+        stage('Checkout') {
+            steps {
+                git branch: 'main', url: 'https://github.com/bovasgabriel/Trend-App.git'
+            }
         }
+
       }
     }
     stage('Configure kubeconfig') {
@@ -48,5 +35,34 @@ pipeline {
             """
         }
     }
+}
+
+
+        stage('Build Docker Image') {
+            steps {
+                sh 'docker build -t bovasgabriel/trend-app:latest .'
+            }
+        }
+
+        stage('Push to DockerHub') {
+            steps {
+                withDockerRegistry([ credentialsId: 'dockerhub-creds', url: '' ]) {
+                    sh 'docker push bovasgabriel/trend-app:latest'
+                }
+            }
+        }
+
+        stage('Deploy to EKS') {
+            steps {
+                sh '''
+                  echo "Deploying updated image to EKS..."
+                  kubectl --kubeconfig /var/lib/jenkins/workspace/trend-ci-cd/kubeconfig set image deployment/trend-app trend-app=bovasgabriel/trend-app:latest -n default
+                  kubectl --kubeconfig /var/lib/jenkins/workspace/trend-ci-cd/kubeconfig rollout status deployment/trend-app -n default --timeout=120s || true
+                  kubectl --kubeconfig /var/lib/jenkins/workspace/trend-ci-cd/kubeconfig get pods -n default
+                '''
+            }
+        }
+    }  
+
 }
 
