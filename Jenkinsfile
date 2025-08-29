@@ -33,17 +33,20 @@ pipeline {
       }
     }
     stage('Deploy to EKS') {
-      steps {
-        sh '''
-          kubectl --kubeconfig $KUBECONFIG get deploy trend-web -n $KUBE_NS >/dev/null 2>&1 \
-          && kubectl --kubeconfig $KUBECONFIG set image deploy/trend-web trend-web=$IMAGE -n $KUBE_NS \
-          || kubectl --kubeconfig $KUBECONFIG apply -f k8s/
-        '''
-        sh 'kubectl --kubeconfig $KUBECONFIG rollout status deployment/trend-web -n $KUBE_NS'
-      }
+    steps {
+        script {
+            sh """
+                echo "Deploying to Kubernetes..."
+                kubectl --kubeconfig kubeconfig apply -f deployment.yaml
+                kubectl --kubeconfig kubeconfig apply -f service.yaml
+
+                echo "Checking rollout status..."
+                kubectl --kubeconfig kubeconfig rollout status deployment/trend-app -n default --timeout=120s || true
+
+                echo "Current Pods status:"
+                kubectl --kubeconfig kubeconfig get pods -n default -o wide
+            """
+        }
     }
-  }
-  post {
-    always { sh 'docker logout || true' }
-  }
 }
+
