@@ -1,0 +1,14 @@
+# Node & general
+node_modules/
+npm-debug.log
+.DS_Store
+
+# Terraform
+infra/.terraform/
+infra/.terraform.lock.hcl
+infra/terraform.tfstate*
+infra/*.tfvars
+
+# IDEs
+.vscode/
+.idea/

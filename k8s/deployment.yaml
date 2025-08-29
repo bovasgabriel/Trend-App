@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: trend-web
+  labels:
+    app: trend-web
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: trend-web
+  template:
+    metadata:
+      labels:
+        app: trend-web
+    spec:
+      containers:
+        - name: trend-web
+          image: bovasgabriel/trend:latest
+          ports:
+            - containerPort: 3000
